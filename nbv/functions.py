@@ -389,5 +389,101 @@ def get_ids_in_direction(idx_grid, idx_target, coords_grid, coords_target, cente
             
             
     return (idx_dir_grid, idx_dir_target)
+
+
+
+def grow_void(pcd_grid, pcd_target, initial_seed, initial_set=set(), search_radius=0.2, stop_threshold=2, void_color=[0,0,1]):
+    # grow void in grid-pointcloud given an initial seed in void space and target pointcloud
+    # already known points can be given as input (initial_set), to avoid unnecessary knn searches
+
+    # create KD-Tree for knn radius search for grid and target pointcloud
+    tree_grid = o3d.geometry.KDTreeFlann(pcd_grid)
+    tree_target = o3d.geometry.KDTreeFlann(pcd_target)
+
+
+    # find index of point in grid, that is closest to initial seed
+    index = find_closest_vector_index(initial_seed, pcd_grid)  
+    
+    # sets to store evaluated points. initialize new_set with found initial index
+    old_set = set()
+    new_set = set(index)
+
+
+    # only do knn searches for "not-evaluated-before" points. reduce new_set by "know-before" points (initial_set)
+    # save new_set as old set before doing new search round
+    different_elements = new_set-initial_set
+    old_set = set(new_set) 
+    
+
+    # do searches, as long as new void points are found
+    while(different_elements):
+    
+
+        # go through all new void points and do knn radius search around them             
+        for index in different_elements:
+            # get coordinates of point in grid at index
+            # do a knn radius search
+            new_center = pcd_grid.points[index]
+            k_grid, k_target, idxu, idxf = knn_search_pointclouds(tree_grid, tree_target, new_center, search_radius)
+            
+            # save found points as numpy arrays
+            coords_grid = np.asarray(pcd_grid.points)[idxu]
+            coords_target = np.asarray(pcd_target.points)[idxf]
+
+            
+            # split all found points in 4 directions; for grid and target pointclouds
+            idx_up_grid, idx_up_target = get_ids_in_direction(idxu, idxf, coords_grid, coords_target, new_center, "up")
+            idx_down_grid, idx_down_target = get_ids_in_direction(idxu, idxf, coords_grid, coords_target, new_center, "down")
+            idx_left_grid, idx_left_target = get_ids_in_direction(idxu, idxf, coords_grid, coords_target, new_center, "left")
+            idx_right_grid, idx_right_target = get_ids_in_direction(idxu, idxf, coords_grid, coords_target, new_center, "right")
+            
+
+            # check for all directions, if amount of found points in target pointcloud is below threshold:
+            # yes: there is void space in that direction; grid indexes are saved in new_set (void space) and grid-pointcloud is colored accordingly
+            # no: it is not void space; do nothing
+
+            if (len(idx_up_target) < stop_threshold):
+                new_set.update(idx_up_grid[1:])
+                np.asarray(pcd_grid.colors)[idx_up_grid[1:], :] = void_color
+            
+            if (len(idx_down_target) < stop_threshold):
+                new_set.update(idx_down_grid[1:])
+                np.asarray(pcd_grid.colors)[idx_down_grid[1:], :] = void_color
+            
+            if (len(idx_left_target) < stop_threshold):
+                new_set.update(idx_left_grid[1:])
+                np.asarray(pcd_grid.colors)[idx_left_grid[1:], :] = void_color
+            
+            if (len(idx_right_target) < stop_threshold):
+                new_set.update(idx_right_grid[1:])
+                np.asarray(pcd_grid.colors)[idx_right_grid[1:], :] = void_color
+        
+
+        # check, what points need to be evaluated next
+        # take all found points, reduce by points found in last iteration, reduce by points known before funciton call
+        # save new_set as old_set for next iteration
+        different_elements = new_set-old_set-initial_set
+        old_set = set(new_set) 
+
+    # gather all indexes of void points found (indexes of grid)  
+    new_set = new_set.union(initial_set)
+    
+    # return indexes and colored grid pointcloud
+    return pcd_grid, new_set
+        
+
+
+def extract_void_area(pcd_grid, pcd_target, midpoints, known_points = set(),  search_radius=1, void_color=[0,0,1]):
+    # grow void for all found midpoints in target pointcloud
+    # colorize void area and save point indexes
+
+    for points in midpoints:
+        void_area, known_points  = grow_void(pcd_grid, pcd_target, points, known_points, search_radius, color=void_color)
+        #o3d.visualization.draw_geometries([void_area, pcd_flat]+marker_meshes)
+
+    # return void area as grid-like pointcloud
+    return void_area, known_points
+
+
         
     
