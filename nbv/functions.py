@@ -11,10 +11,10 @@ from scipy.spatial.transform import Rotation
 from iteration_utilities import deepflatten
 from mpl_toolkits.mplot3d import Axes3D
 
-def create_box_at_point(point, color=[0,1,0]):
+def create_box_at_point(point, size=(0.1,0.1,0.1), color=[0,1,0]):
     # function to create marker for visualization
-
-    box = o3d.geometry.TriangleMesh.create_box(0.1,0.1,0.1)
+    size_x, size_y, size_z = size
+    box = o3d.geometry.TriangleMesh.create_box(size_x, size_y, size_z)
     box.paint_uniform_color(color)
     
     box.translate(point, False)
