@@ -403,10 +403,10 @@ def grow_void(pcd_grid, pcd_target, initial_seed, initial_set=set(), search_radi
 
     # find index of point in grid, that is closest to initial seed
     index = find_closest_vector_index(initial_seed, pcd_grid)  
-    
+
     # sets to store evaluated points. initialize new_set with found initial index
     old_set = set()
-    new_set = set(index)
+    new_set = set([index])
 
 
     # only do knn searches for "not-evaluated-before" points. reduce new_set by "know-before" points (initial_set)
@@ -478,7 +478,7 @@ def extract_void_area(pcd_grid, pcd_target, midpoints, known_points = set(),  se
     # colorize void area and save point indexes
 
     for points in midpoints:
-        void_area, known_points  = grow_void(pcd_grid, pcd_target, points, known_points, search_radius, color=void_color)
+        void_area, known_points  = grow_void(pcd_grid, pcd_target, points, known_points, search_radius, void_color=void_color)
         #o3d.visualization.draw_geometries([void_area, pcd_flat]+marker_meshes)
 
     # return void area as grid-like pointcloud
