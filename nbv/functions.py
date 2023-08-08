@@ -11,6 +11,7 @@ from scipy.spatial.transform import Rotation
 from iteration_utilities import deepflatten
 from mpl_toolkits.mplot3d import Axes3D
 
+
 def create_box_at_point(point, size=(0.1,0.1,0.1), color=[0,1,0]):
     # function to create marker for visualization
     size_x, size_y, size_z = size
