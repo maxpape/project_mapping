@@ -12,6 +12,105 @@ from iteration_utilities import deepflatten
 from mpl_toolkits.mplot3d import Axes3D
 
 
+def detect_boundaries(pcd):
+    """detect boundary points in a pointcloud
+
+    Args:
+        pcd (o3d.geometry.PointCloud): input pointcloud
+
+    Returns:
+        o3d.geometry.PointCloud: output pointcloud containing only the boundary points
+    """
+    
+    tensor_pcd = o3d.t.geometry.PointCloud.from_legacy(pcd)
+    
+    #compute boundary points. args: search radius, max_nn, angle_threshold
+    boundaries, mask = tensor_pcd.compute_boundary_points(0.2, 100, 95)
+    
+    
+    boundaries = boundaries.to_legacy()
+    boundaries = boundaries.paint_uniform_color([1,0,0])
+    cl, ind = boundaries.remove_radius_outlier(2, 0.2)
+    boundaries = boundaries.select_by_index(ind)
+    
+    return boundaries
+
+def detect_boundary_patches(boundaries):
+    """take boundary points and detect patches (detect boundary points that form a hole in pointcloud)
+
+    Args:
+        boundaries (o3d.geometry.PointCloud): input pointcloud containing all boundary points
+
+    Returns:
+        list(o3d.geometry.TriangleMesh): list of Triangle Meshes representing holes in pointcloud
+    """
+    
+    # estimate and orient normals
+    if not boundaries.has_normals():
+        boundaries.estimate_normals()
+    boundaries.orient_normals_consistent_tangent_plane(30)
+    
+    # detect bounding boxes from corresponding boundary points
+    oboxes = boundaries.detect_planar_patches(normal_variance_threshold_deg=60,
+                                                coplanarity_deg=80,
+                                                outlier_ratio=0.75,
+                                                min_plane_edge_length=1,
+                                                min_num_points=5,
+                                                search_param=o3d.geometry.KDTreeSearchParamKNN(knn=50))
+    
+    # create triangle meshes from detected bounding boxes
+    patches = []
+    for obox in oboxes:
+        mesh = o3d.geometry.TriangleMesh.create_from_oriented_bounding_box(obox, scale=[1, 1, 0.0001])
+        mesh.paint_uniform_color(obox.color)
+        mesh.compute_triangle_normals()
+        mesh.compute_vertex_normals()        
+        patches.append(mesh)
+    
+    return patches
+    
+def add_vector_to_point(point, vector, length):
+    """adds a vector with a given lenght to a point in 3d and returns the new point
+
+    Args:
+        point (numpy.ndarray): input point in 3d
+        vector (numpy.ndarray): vector to be added
+        length (float): length of given input vector to be added
+
+    Returns:
+        numpy.ndarray: new point in 3d
+    """
+    print(type(length))
+    # Calculate the new point coordinates
+    new_point = point + length * vector
+
+    # Return the new point as a NumPy array
+    return new_point
+
+
+def calc_mesh_area_sorted(meshes):
+    """
+    calculate the area of input meshes and sort in descending order.
+    Used to rank the importance of meshes.
+    larger mesh => higher importance to cover that hole
+
+    Args:
+        meshes (list(o3d.geometry.TriangleMesh)): list of input meshes for which area is calculated (meshes are assumed to be square)
+
+    Returns:
+        numpy.ndarray: 2d array, containing index of input list and corresponding area
+    """
+    
+    areas = np.zeros((len(meshes),2))
+    for i in range(len(meshes)):
+        mesh_bb = meshes[i].get_oriented_bounding_box()
+        area = mesh_bb.volume()/mesh_bb.extent[2]
+        areas[i][0] = i
+        areas[i][1] = area
+    sorted_indices = np.argsort(areas[:, 1])[::-1]
+    return areas[sorted_indices]
+          
+
 def create_box_at_point(point, size=(0.1,0.1,0.1), color=[0,1,0]):
     # function to create marker for visualization
     size_x, size_y, size_z = size
