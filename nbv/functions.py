@@ -169,13 +169,55 @@ def add_vector_to_point(point, vector, length):
     Returns:
         numpy.ndarray: new point in 3d
     """
-    print(type(length))
     # Calculate the new point coordinates
     new_point = point + length * vector
 
     # Return the new point as a NumPy array
     return new_point
 
+def is_perpendicular(angle, threshold):
+    """used to check if a given angle is close to being 90° within a certain threshold
+
+    Args:
+        angle (float): calculated angle between two vectors
+        threshold (float): angle threshold allowed
+
+    Returns:
+        bool: returns True if angle is between 90° +- threshold
+    """
+    
+    if (180 <= angle < 360):
+        angle -= 180
+        
+    if ((90-threshold) <= angle <= (90+threshold)):
+        return True
+    else:
+        return False
+
+
+
+def compute_transform(vector1, vector2):
+    """compute the translation and rotation needed to transform vector1 to vector2
+
+    Args:
+        vector1 (numpy.ndarray): input vector start
+        vector2 (numpy.ndarray): input vector target
+
+    Returns:
+        tuple(numpy.ndarray, numpy.ndarray): translation and transformation matrix
+    """
+    
+    # Normalize the vectors to unit length
+    vector1 = vector1 / np.linalg.norm(vector1)
+    vector2 = vector2 / np.linalg.norm(vector2)
+
+    # Compute the rotation matrix
+    rotation_matrix = Rotation.align_vectors([vector1], [vector2])[0].as_matrix()
+
+    # Compute the translation vector
+    translation_vector = vector2 - np.dot(rotation_matrix, vector1)
+
+    return translation_vector, rotation_matrix
 
 def calc_mesh_area_sorted(meshes):
     """
@@ -273,6 +315,99 @@ def are_vectors_perpendicular(v1, v2, threshold):
         return True
     else:
         return False
+    
+def angle_between_vectors(v1, v2):
+    """ Returns the angle in radians between vectors 'v1' and 'v2'::
+
+            >>> angle_between((1, 0, 0), (0, 1, 0))
+            1.5707963267948966
+            >>> angle_between((1, 0, 0), (1, 0, 0))
+            0.0
+            >>> angle_between((1, 0, 0), (-1, 0, 0))
+            3.141592653589793
+    """
+    # Normalize the vectors to unit length
+    v1_u = v1 / np.linalg.norm(v1)
+    v2_u = v2 / np.linalg.norm(v2)
+    angle = np.arccos(np.clip(np.dot(v1_u, v2_u), -1.0, 1.0))
+    
+    return np.degrees(angle)
+
+def rotation_matrix_to_axis_angle(matrix):
+    """return the angle of rotation around xyz axis from rotation matrix
+
+    Args:
+        matrix (numpy.ndarray): input rotation matrix
+
+    Returns:
+        numpy.ndarray: array containing rotation around xyz-axis in degrees
+    """ 
+    r = Rotation.from_matrix(matrix)
+    return r.as_euler('xyz', degrees=True)
+
+
+def invert_normalized_vector(vector):
+    """invert the direction of a normalized vector
+
+    Args:
+        vector (numpy.ndarray): input vector to be inverted
+
+    Returns:
+        numpy.ndarray: output vector pointing in opposite direction
+    """
+    inverted_vector = []
+    for component in vector:
+        inverted_component = -component
+        inverted_vector.append(inverted_component)
+    return inverted_vector
+
+
+
+def check_vector_similar_direction(vec1, vec2):
+    """check wether two vectors point in a similar direction
+
+    Args:
+        vec1 (numpy.ndarray): input vector 1
+        vec2 (numpy.ndarray): input vector 2
+
+    Returns:
+        bool: returns True if both vectors point in similar direction
+    """
+    
+    # Normalize the vectors
+    normalized_vec1 = np.array(vec1) / np.linalg.norm(vec1)
+    normalized_vec2 = np.array(vec2) / np.linalg.norm(vec2)
+    
+    # Calculate the dot product
+    dot_product = np.dot(normalized_vec1, normalized_vec2)
+    
+    if (dot_product > 0):
+        return True
+    else:
+        return False
+
+
+def sort_xd_list(list, axis, order="ascending"):
+    """Sort a multi-dimensional list according to a specific axis
+
+    Args:
+        list (list): input list to be sorted
+        axis (int): axis along which the list should be sorted
+        order (str, optional): choose between ascending or descending order. Defaults to "ascending".
+
+    Returns:
+        list: sorted list
+    """
+    ord = {"ascending" : True,
+             "descending" : False}
+    list.sort(key=lambda x:x[axis])
+    
+    if ord[order]:
+        return list
+    else:
+        list.reverse()
+        return list
+    
 
 def find_midpoint_between_planes(plane1, plane2):
     """calculate midpoint between two planes
