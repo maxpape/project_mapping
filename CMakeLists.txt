@@ -12,7 +12,6 @@ find_package(catkin REQUIRED COMPONENTS
   laser_geometry
   message_filters
   message_generation
-  open3d
   pcl_conversions
   pluginlib
   roscpp

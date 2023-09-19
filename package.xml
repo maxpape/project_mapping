@@ -53,7 +53,6 @@
   <build_depend>laser_geometry</build_depend>
   <build_depend>message_filters</build_depend>
   <build_depend>message_generation</build_depend>
-  <build_depend>open3d</build_depend>
   <build_depend>pcl_conversions</build_depend>
   <build_depend>pluginlib</build_depend>
   <build_depend>roscpp</build_depend>
@@ -64,7 +63,6 @@
   <build_export_depend>filters</build_export_depend>
   <build_export_depend>laser_geometry</build_export_depend>
   <build_export_depend>message_filters</build_export_depend>
-  <build_export_depend>open3d</build_export_depend>
   <build_export_depend>pcl_conversions</build_export_depend>
   <build_export_depend>pluginlib</build_export_depend>
   <build_export_depend>roscpp</build_export_depend>
@@ -75,7 +73,6 @@
   <exec_depend>filters</exec_depend>
   <exec_depend>laser_geometry</exec_depend>
   <exec_depend>message_filters</exec_depend>
-  <exec_depend>open3d</exec_depend>
   <exec_depend>pcl_conversions</exec_depend>
   <exec_depend>pluginlib</exec_depend>
   <exec_depend>roscpp</exec_depend>
