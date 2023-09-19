@@ -990,4 +990,114 @@ def extract_void_area(pcd_grid, pcd_target, midpoints, known_points = set(),  se
 
 
         
+
+def count_hits_ray_cast(scene_answer, cam_normal, dist_thresh, angle_thresh):
+    """Counts the number of valid hits in a ray-casting scene.
+    Takes constraints like distance to surface and surface normal into account.
+    Returns percentage of valid hits.
+
+    Args:
+        scene_answer (open3d.t.geometry.RaycastingScene): input ray-casting scene. (simulated pinhole camera)
+        cam_normal (numpy.ndarray): orientation of the simulated pinhole camera from ray-casting scene
+        dist_thresh (tuple(float, float)): tuple containing upper and lower threshold for which a hit is counted as valid
+        angle_thresh (float): ideal angle between surface normal and cam normal: 90°. angle_thresh defines maximum derivation from 90° to be still counted as valid hit
+
+    Returns:
+        float: percentage of valid hits in ray-casting scene
+    """
     
+    # extract surface normals and distances from ray-casting scene
+    cast_normals = scene_answer['primitive_normals'].numpy()
+    cast_distances = scene_answer['t_hit'].numpy()
+    
+    dist_lower = dist_thresh[0]
+    dist_upper = dist_thresh[1]
+    n_valid_hits = 0
+    
+    # flatten scene answers from n_pixesl x n_pixels to 1 x n_pixels²
+    flattened_dist_array = cast_distances.flatten()
+    n_pixels = len(flattened_dist_array)
+    flattened_normal_array = cast_normals.reshape(n_pixels,3)
+    
+
+    # count valid hits: only if in distance bounds and if surface normal does not diverge more then angle_thresh degrees
+    for i in range(n_pixels):
+        
+        if (flattened_dist_array[i] >= dist_lower) & (flattened_dist_array[i] <= dist_upper):
+            pass
+        else:
+            continue
+        
+        point_normal = flattened_normal_array[i]
+        angle = angle_between_vectors(point_normal, cam_normal)
+        
+        if is_perpendicular(angle, angle_thresh):
+            continue
+        else:
+            n_valid_hits += 1
+        
+    
+    return n_valid_hits/n_pixels
+
+def rank_all_views(hole_patches, dist_thresh, angle_thresh, camera_fov=90):
+    """Calculate percentage of valid hits for all potential views.
+    Returns percentage of valid hits, camera position and orientation as well as ray-casting scene answers.
+
+    Args:
+        hole_patches (list[o3d.geometry.TriangleMesh]): list of triangle meshes representing the holes in a pointcloud
+        dist_thresh (tuple(float, float)): tuple containing upper and lower bound for determining valid hits. valid if: lower bound <= distance hit <= upper bound
+        angle_thresh (float): ideal angle between surface normal and cam normal: 90°. angle_thresh defines maximum derivation from 90° to be still counted as valid hit
+        camera_fov(int): camera field of view for pinhole camera in ray-casting scene. Default: 90°
+
+    Returns:
+        list: returns percentage of valid hits, with corresponding camera position and orientation as well as ray-casting scene answers
+    """
+    
+    # create empty ray-casting scene and variables
+    scene = o3d.t.geometry.RaycastingScene()
+    hole_centers = []
+    hole_normals = []
+    cam_positions = []
+    cam_normals = []
+    hit_areas = []
+    scene_answers = []
+    dist_threshes = [dist_thresh]*len(hole_patches)
+    angle_threshes = [angle_thresh]*len(hole_patches)
+    
+    
+    # add meshes that represent holes to ray-casting scene
+    for hole in hole_patches:
+        scene.add_triangles(o3d.t.geometry.TriangleMesh.from_legacy(hole))
+        center = hole.get_center()
+        normal = np.asarray(hole.vertex_normals)[0]
+        cam_pos = add_vector_to_point(center, normal, 5)
+        cam_pos[2] = 0.5
+        center[2] = 0.5
+        hole_centers.append(center)
+        hole_normals.append(normal)
+        cam_positions.append(cam_pos)
+        cam_normal = (center-cam_pos)
+        cam_normals.append(cam_normal)
+    
+    
+    # create rays representing virtual pinhole camera for all camera positions and orientations
+    for i in range(len(hole_patches)):
+        rays = o3d.t.geometry.RaycastingScene.create_rays_pinhole(
+                fov_deg=camera_fov,
+                center=hole_centers[i],
+                eye=cam_positions[i],
+                up=[0, 0, -1],
+                width_px=500,
+                height_px=500)
+        ans = scene.cast_rays(rays)
+        scene_answers.append(ans)
+    
+    
+    # calculate percentage of valid hits for all scenes in parallel
+    with Pool(mp.cpu_count()) as p:
+        hit_areas = p.starmap(count_hits_ray_cast, zip(scene_answers, cam_normals, dist_threshes, angle_threshes))
+  
+    
+    
+    return list(zip(hit_areas, cam_positions, cam_normals, scene_answers))
+

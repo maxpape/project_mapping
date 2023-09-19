@@ -65,6 +65,7 @@ find_package(catkin REQUIRED COMPONENTS
 add_service_files(FILES
   save_map.srv
   get_floor.srv
+  get_nbv.srv
 )
 
 ## Generate actions in the 'action' folder
