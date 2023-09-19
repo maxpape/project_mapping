@@ -44,6 +44,12 @@ class Map:
         self.combined_map = pc_combined
         self.combined_map_down = pc_down_combined
         
+    def save(self, path, downsampled=False):
+        if downsampled:
+            o3d.io.write_point_cloud(path, self.combined_map_down)
+        else:
+            o3d.io.write_point_cloud(path, self.combined_map)
+        
 
 
 convert_rgbUint32_to_tuple = lambda rgb_uint32: (
@@ -192,18 +198,15 @@ def register(map):
     # create empty pointcloud and combine input pointclouds with corresponding transform
     # original pointclouds are combined here; change from pcds to pcds_down if downsampled pointcloud is desired
     print("Transform points and display")
-    pcd_combined = o3d.geometry.PointCloud()
+    
     for point_id in range(len(map.pcds)):
         print(pose_graph.nodes[point_id].pose)
         map.pcds[point_id].transform(pose_graph.nodes[point_id].pose)
         map.pcds_down[point_id].transform(pose_graph.nodes[point_id].pose)
-        #pcd_combined += pcds[point_id]
-    # save output as .pcd file and visualize
-    #o3d.io.write_point_cloud(output, pcd_combined)
-    #o3d.visualization.draw_geometries([pcd_combined])
+        
 
 
-def callback(data, map):
+def registration(data, map):
     voxel_size = map.voxel_size
     
     
@@ -238,19 +241,17 @@ def callback(data, map):
     
     rospy.loginfo("Received a PointCloud2 message")
 
-def save_map_handler(req):
-    global pcds
-    if (len(pcds) == 0):
+def save_map_handler(req, map):
+    
+    if (len(map.pcds) == 0):
         return "can not save. No pointcloud data available."
     
     filename = req.filename + ".pcd"
     path = os.getcwd() + "/" + filename
-    register(voxel_size)
+    register(map)
     
-    pcd_combined = o3d.geometry.PointCloud()
-    for pc in pcds:
-        pcd_combined += pc
-    o3d.io.write_point_cloud(filename, pcd_combined)    
+    map.combine_pc()
+    map.save(path)
     
     return path
 
@@ -259,9 +260,10 @@ def main():
     service_name = rospy.get_name() + "/save_map"
     map = Map(voxel_size=0.1)
    
-    s = rospy.Service(service_name, save_map, save_map_handler)
+    save_map_handler_lambda = lambda x: save_map_handler(x,map)
+    s = rospy.Service(service_name, save_map, save_map_handler_lambda)
         
-    rospy.Subscriber("/periodic_snapshotter/assembled_cloud_2", PointCloud2, callback, map)
+    rospy.Subscriber("/periodic_snapshotter/assembled_cloud_2", PointCloud2, registration, map)
     rospy.spin()
 
     
