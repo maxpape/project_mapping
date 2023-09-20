@@ -1101,3 +1101,53 @@ def rank_all_views(hole_patches, dist_thresh, angle_thresh, camera_fov=90):
     
     return list(zip(hit_areas, cam_positions, cam_normals, scene_answers))
 
+
+def check_robot_position_is_valid(position, valid_area, dimension=(0.5,0.5,0.5)):
+    """check wether the robot has enough space to stand on given position
+    create a 2d pointcloud of area covered by robot
+    use to check wether it has enough space to stand on valid_area
+
+    Args:
+        position (numpy.ndarray): position that robot should stand on and should be checked
+        valid_area (o3d.geometry.VoxelGrid): Voxelgrid covering valid floor space
+        dimension (tuple, optional): space that robot occupies. Defaults to (0.5,0.5,0.5).
+
+    Returns:
+        bool: returns whether position is valid or not
+    """
+    
+    box = create_box_at_point(position, size=dimension)
+    box_sampled = hull_to_uniform_pc(box, 0.1, [1,0,0])
+    
+    box_points = np.asarray(box_sampled.points)
+    box_points[:,2] = 0
+    box_points = o3d.utility.Vector3dVector(box_points)
+    
+    
+    inc = valid_area.check_if_included(box_points)
+    sum_points = len(inc)
+    sum_included_points = sum(inc)
+    if sum_points == sum_included_points:
+        return True
+    else:
+        return False
+
+
+def find_best_valid_view(positions, orientations, valid_area):
+    """takes all suggested next views, finds the best view that is valid
+
+    Args:
+        positions (list[numpy.ndarry]): all suggested next-best-views positions 
+        positions (list[numpy.ndarry]): all suggested next-best-views orientations
+        valid_area (o3d.geometry.VoxelGrid): Voxelgrid covering valid floor space
+
+    Returns:
+        tuple(numpy.ndarry, numpy.ndarry): best view and corresponding orientation;
+                                            returns (0,0,0) and (0,0,0) if not valid view has been found
+    """
+    for i in range(len(positions)):
+        
+        if check_robot_position_is_valid(positions[i], valid_area):
+            return positions[i], orientations[i]
+    
+    return np.asarray([0,0,0]), np.asarray([0,0,0])

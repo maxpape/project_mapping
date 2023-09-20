@@ -66,6 +66,7 @@ add_service_files(FILES
   save_map.srv
   get_floor.srv
   get_nbv.srv
+  align_floor.srv
 )
 
 ## Generate actions in the 'action' folder

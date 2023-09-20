@@ -8,7 +8,7 @@ from ctypes import * # convert float to uint32
 from std_msgs.msg import Header
 from sensor_msgs.msg import PointCloud2, PointField
 import sensor_msgs.point_cloud2 as pc2
-from project_mapping.srv import save_map, get_floor, get_nbv
+from project_mapping.srv import save_map, get_floor, get_nbv, align_floor
 
 import multiprocessing as mp
 from multiprocessing import Pool
@@ -27,7 +27,9 @@ class Map:
         self.combined_map_down = o3d.geometry.PointCloud()
         self.map_2d = o3d.geometry.PointCloud()
         self.floor = o3d.geometry.VoxelGrid()
+        self.floor_alignment = np.identity(4)
         self.up_to_date = False
+        self.is_aligned = False
         self.next_best_position = np.asarray([0,0,0])
         self.next_best_orientation = np.asarray([0,0,0])
 
@@ -46,6 +48,16 @@ class Map:
         for pc in self.pcds:
             self.pcds_down.append(pc.voxel_down_sample(voxel_size=self.voxel_size))
             
+    def align_all(self):
+        for i in range(len(self.pcds)):
+            self.pcds[i].transform(self.floor_alignment)
+            self.pcds_down[i].transform(self.floor_alignment)
+            
+        self.combined_map.transform(self.floor_alignment)
+        self.combined_map_down.transform(self.floor_alignment)
+        self.is_aligned = True
+        
+                    
     def combine_pc(self):
         pc_combined = o3d.geometry.PointCloud()
         pc_down_combined = o3d.geometry.PointCloud()
@@ -76,6 +88,7 @@ class Map:
         pcd.estimate_normals()
         pcd.orient_normals_consistent_tangent_plane(40)
         self.map_2d = functions.filter_by_normal(pcd)
+        
         
         
 
@@ -244,6 +257,7 @@ def registration(data, map):
     
     print(len(map.pcds))
     pcd = convertCloudFromRosToOpen3d(data)
+    pcd.transform(map.floor_alignment)
     pcd.estimate_normals()
     pcd_down = pcd.voxel_down_sample(voxel_size=voxel_size)
     
@@ -289,14 +303,15 @@ def save_map_handler(req, map):
 
 def get_floor_handler(req, map):
 
+
+    
     if not map.up_to_date:
         register(map)
         map.combine_pc()
-        map.create_2d()
-    else:
-        o3d.visualization.draw_geometries([map.floor, map.map_2d])
-        return []
+        
     
+        
+    map.create_2d()
     
     oboxes = map.map_2d.detect_planar_patches(
     normal_variance_threshold_deg=50,
@@ -370,36 +385,66 @@ def get_nbv_handler(req, map):
     best_positions = [view[1] for view in ranked_views]
     best_orientations = [view[2] for view in ranked_views]
     
-    
+    if map.floor.is_empty():
+        get_floor_handler(None, map)
+    if not map.is_aligned:
+        align_floor_handler(None, map)
+        
+        
+    best_view = functions.find_best_valid_view(best_positions, best_orientations, map.floor)
         
     
-    map.next_best_view = best_positions[0]
-    map.next_best_orientation = best_orientations[0]
+    map.next_best_position = best_view[0]
+    map.next_best_orientation = best_view[1]
     map.up_to_date = True
     
     
     
-    box = functions.create_box_at_point(best_positions[0], size=(0.3,0.3,0.3), color=[1,0,0])
+    box = functions.create_box_at_point(map.next_best_position, size=(0.3,0.3,0.3), color=[1,0,0])
     
     o3d.visualization.draw_geometries([map.combined_map] + [box])
     
     return []
+
+
+def align_floor_handler(req, map):
+    ground_plane = np.asarray([0,0,1,0])
+    pcd_ground_plane, inliers = functions.detect_ground_plane(map.combined_map)
+    trans = functions.calculate_floor_alignment_matrix(pcd_ground_plane)
+    inlier_cloud = map.combined_map.select_by_index(inliers)
+    inlier_cloud.paint_uniform_color([1.0, 0, 0])
+    
+    o3d.visualization.draw_geometries([map.combined_map, inlier_cloud])
+    
+    
+    map.floor_alignment = trans
+    map.align_all()
+    
+    
+    
+    
+    
+    return []
+
 
 def main():
     rospy.init_node("pointcloud_icp", anonymous=True)
     service_name_save = rospy.get_name() + "/save_map"
     service_name_floor = rospy.get_name() + "/get_floor"
     service_name_nbv = rospy.get_name() + "/get_nbv"
+    service_name_align = rospy.get_name() + "/algin_floor"
     map = Map(voxel_size=0.1)
    
     save_map_handler_lambda = lambda x: save_map_handler(x,map)
     get_floor_handler_lambda = lambda x: get_floor_handler(x,map)
     get_nbv_handler_lambda = lambda x: get_nbv_handler(x,map)
+    align_floor_handler_lambda = lambda x: align_floor_handler(x,map)
     #s1 = rospy.Service(service_name_save, save_map, save_map_handler_lambda)
     #s2 = rospy.Service(service_name_floor, get_floor, get_floor_handler_lambda)
     s1 = rospy.Service("/save_map", save_map, save_map_handler_lambda)
     s2 = rospy.Service("/get_floor", get_floor, get_floor_handler_lambda)
-    s2 = rospy.Service("/get_nbv", get_nbv, get_nbv_handler_lambda)
+    s3 = rospy.Service("/get_nbv", get_nbv, get_nbv_handler_lambda)
+    s4 = rospy.Service("/algin_floor", align_floor, align_floor_handler_lambda)
         
     rospy.Subscriber("/periodic_snapshotter/assembled_cloud_2", PointCloud2, registration, map)
     rospy.spin()
