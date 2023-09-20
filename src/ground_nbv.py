@@ -9,6 +9,7 @@ from std_msgs.msg import Header
 from sensor_msgs.msg import PointCloud2, PointField
 import sensor_msgs.point_cloud2 as pc2
 from project_mapping.srv import save_map, get_floor, get_nbv, align_floor
+from project_mapping.msg import tuple_ndarray
 
 import multiprocessing as mp
 from multiprocessing import Pool
@@ -404,7 +405,14 @@ def get_nbv_handler(req, map):
     
     o3d.visualization.draw_geometries([map.combined_map] + [box])
     
-    return []
+    
+    response_msg = tuple_ndarray()
+    response_msg.vector1.data = map.next_best_position
+    response_msg.vector2.data = map.next_best_orientation
+    
+    
+    
+    return response_msg
 
 
 def align_floor_handler(req, map):
