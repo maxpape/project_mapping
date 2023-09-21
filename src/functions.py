@@ -253,6 +253,33 @@ def create_box_at_point(point, size=(0.1,0.1,0.1), color=[0,1,0]):
     
     return box
 
+def create_arrow_pos_ori(position, orientation, scale=1, color=[1,0,0]):
+    """Creates an arrow for visualization at given position and with given orientation
+
+    Args:
+        position (numpy.ndarray): position for arrow
+        orientation (numpy.ndarray): orientation for arrow
+        color (list, optional): color of arrow. Defaults to [1,0,0].
+
+    Returns:
+        o3d.geometry.TriangleMesh: resulting arrow as triangle mesh
+    """
+    
+    arrow = o3d.geometry.TriangleMesh.create_arrow(0.1,0.15,0.5,0.3)
+    arrow.paint_uniform_color(color)
+    arrow.compute_triangle_normals()
+    arrow.compute_vertex_normals()
+    arrow_normal = np.asarray(arrow.vertex_normals)[0]
+
+    translation, rotation = compute_transform(orientation, arrow_normal)  
+    
+    arrow.rotate(rotation)
+    
+    arrow.translate(position, False)
+    arrow = arrow.scale(scale, arrow.get_center())
+    
+    return arrow
+
 def filter_by_normal(pcd, hight_variance = 0.01):
     """Filters a pointcloud according to their normals. Only points with normals facing in x or y direction are kept,
     points with normals in z-direction are neglected.
@@ -1134,7 +1161,7 @@ def check_robot_position_is_valid(position, valid_area, dimension=(0.5,0.5,0.5))
 
 
 def find_best_valid_view(positions, orientations, valid_area):
-    """takes all suggested next views, finds the best view that is valid
+    """takes all suggested next views, finds the best views that are valid
 
     Args:
         positions (list[numpy.ndarry]): all suggested next-best-views positions 
@@ -1142,12 +1169,17 @@ def find_best_valid_view(positions, orientations, valid_area):
         valid_area (o3d.geometry.VoxelGrid): Voxelgrid covering valid floor space
 
     Returns:
-        tuple(numpy.ndarry, numpy.ndarry): best view and corresponding orientation;
-                                            returns (0,0,0) and (0,0,0) if not valid view has been found
+        list[tuple(numpy.ndarry, numpy.ndarry)]: best views and corresponding orientations;
+                                            returns list[((0,0,0), (0,0,0))] if no valid view has been found
     """
+    valid_views = []
+    
     for i in range(len(positions)):
         
         if check_robot_position_is_valid(positions[i], valid_area):
-            return positions[i], orientations[i]
+            valid_views.append( (positions[i], orientations[i]))
     
-    return np.asarray([0,0,0]), np.asarray([0,0,0])
+    if valid_views == []:
+        return [np.asarray([0,0,0]), np.asarray([0,0,0])]
+    else:
+        return valid_views

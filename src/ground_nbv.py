@@ -31,8 +31,8 @@ class Map:
         self.floor_alignment = np.identity(4)
         self.up_to_date = False
         self.is_aligned = False
-        self.next_best_position = np.asarray([0,0,0])
-        self.next_best_orientation = np.asarray([0,0,0])
+        self.next_best_views = [(np.asarray([0,0,0]) , np.asarray([0,0,0]))]
+        
 
     def add_pc(self, pc):
         pc.estimate_normals()
@@ -365,6 +365,10 @@ def get_nbv_handler(req, map):
         register(map)
         map.combine_pc()
         map.create_2d()
+    get_floor_handler(None, map)
+    
+    if len(map.floor.get_voxels()) < 100:
+        return "no floor space detected. can't start nbv planning"
     
     print("1st")
     pcd = cp.deepcopy(map.combined_map)
@@ -386,29 +390,45 @@ def get_nbv_handler(req, map):
     best_positions = [view[1] for view in ranked_views]
     best_orientations = [view[2] for view in ranked_views]
     
-    if map.floor.is_empty():
-        get_floor_handler(None, map)
+    
     if not map.is_aligned:
         align_floor_handler(None, map)
         
         
-    best_view = functions.find_best_valid_view(best_positions, best_orientations, map.floor)
+    best_views = functions.find_best_valid_view(best_positions, best_orientations, map.floor)
         
     
-    map.next_best_position = best_view[0]
-    map.next_best_orientation = best_view[1]
+    map.next_best_views = best_views
+    
     map.up_to_date = True
     
+    print(map.next_best_views[0][0])
+    print(map.next_best_views[0][1])
+    
+    views = []
+    first = True
+    scale = 1
+    for view in map.next_best_views:
+        if first:
+            views.append(functions.create_arrow_pos_ori(view[0], view[1], scale=scale, color=[0,1,0]))
+            first = False
+            scale *= 0.8
+        else:
+            views.append(functions.create_arrow_pos_ori(view[0], view[1], scale=scale, color=[1,0,0]))
+            scale *= 0.8
+    
+    arrow1 = functions.create_arrow_pos_ori([0,0,0], [1,0,0])
+    arrow2 = functions.create_arrow_pos_ori([0,0,0], [0,1,0], color = [0,1,0])
+    arrow3 = functions.create_arrow_pos_ori([0,0,0], [0,0,1], color = [0,0,1])
     
     
-    box = functions.create_box_at_point(map.next_best_position, size=(0.3,0.3,0.3), color=[1,0,0])
     
-    o3d.visualization.draw_geometries([map.combined_map] + [box])
+    o3d.visualization.draw_geometries([map.combined_map] + views + geometries + [arrow1 , arrow2 , arrow3])
     
     
     response_msg = tuple_ndarray()
-    response_msg.vector1.data = map.next_best_position
-    response_msg.vector2.data = map.next_best_orientation
+    response_msg.vector1.data = map.next_best_views[0][0]
+    response_msg.vector2.data = map.next_best_views[0][1]
     
     
     
@@ -455,6 +475,8 @@ def main():
     s4 = rospy.Service("/algin_floor", align_floor, align_floor_handler_lambda)
         
     rospy.Subscriber("/periodic_snapshotter/assembled_cloud_2", PointCloud2, registration, map)
+    #rospy.Subscriber("/GETjag/keyframeSegment", PointCloud2, registration, map)
+    
     rospy.spin()
 
     
