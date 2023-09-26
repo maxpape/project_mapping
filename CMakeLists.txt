@@ -66,6 +66,7 @@ add_service_files(FILES
   get_floor.srv
   get_nbv.srv
   align_floor.srv
+  AssembleScans.srv
 )
 
 ## Generate actions in the 'action' folder
@@ -213,3 +214,14 @@ include_directories(
 
 ## Add folders to be run by python nosetests
 # catkin_add_nosetests(test)
+
+
+add_executable(periodic_snapshotter2 src/periodic_snapshotter2.cpp )
+target_link_libraries(periodic_snapshotter2 ${catkin_LIBRARIES} ${Boost_LIBRARIES})
+add_dependencies(periodic_snapshotter2 ${PROJECT_NAME}_gencpp)
+
+
+
+# Install headers
+install(DIRECTORY include/${PROJECT_NAME}/
+  DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION})

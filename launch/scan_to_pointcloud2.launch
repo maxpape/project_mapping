@@ -1,0 +1,13 @@
+<launch>
+<param name="/use_sim_time" value="true"/>
+  <node pkg="laser_assembler" type="periodic_snapshotter2" output="screen" name="periodic_snapshotter">
+    <param name="/use_sim_time" value="true" />
+  </node>
+  <node pkg="laser_assembler" type="laser_scan_assembler" output="screen"  name="laser_scan_assembler">
+    <remap from="scan" to="/GETjag/laser_scan_front"/>
+    <param name="tf_cache_time_secs" type="double" value="10.0" />
+    <param name="max_scans" type="int" value="10000" />
+    <param name="ignore_laser_skew" type="bool" value="false" />
+    <param name="fixed_frame" type="string" value="GETjag/odom" />
+  </node>
+</launch>

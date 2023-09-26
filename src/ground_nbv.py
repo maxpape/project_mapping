@@ -475,7 +475,7 @@ def main():
     s4 = rospy.Service("/algin_floor", align_floor, align_floor_handler_lambda)
         
     rospy.Subscriber("/periodic_snapshotter/assembled_cloud_2", PointCloud2, registration, map)
-    #rospy.Subscriber("/GETjag/keyframeSegment", PointCloud2, registration, map)
+    #rospy.Subscriber("/GETjag/laser_cloud_last", PointCloud2, registration, map)
     
     rospy.spin()
 
