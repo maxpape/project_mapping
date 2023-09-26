@@ -9,6 +9,7 @@ project(project_mapping)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
   filters
+  laser_filters
   laser_geometry
   message_filters
   message_generation
@@ -220,6 +221,9 @@ add_executable(periodic_snapshotter2 src/periodic_snapshotter2.cpp )
 target_link_libraries(periodic_snapshotter2 ${catkin_LIBRARIES} ${Boost_LIBRARIES})
 add_dependencies(periodic_snapshotter2 ${PROJECT_NAME}_gencpp)
 
+add_executable(laser_scan_assembler src/laser_scan_assembler.cpp)
+target_link_libraries(laser_scan_assembler ${catkin_LIBRARIES} ${Boost_LIBRARIES})
+add_dependencies(laser_scan_assembler ${PROJECT_NAME}_gencpp)
 
 
 # Install headers
