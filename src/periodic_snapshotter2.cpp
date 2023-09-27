@@ -72,8 +72,8 @@ public:
 		// initialize min/max angles and indicator for if changes has happened
 		// has_changed_min/max_ is needed, so service is only called once
 		curr_angle_ = 0;
-		max_angle_ = M_PI/2-0.1;
-		min_angle_ = -M_PI/2+0.1;
+		max_angle_ = M_PI/2-0.00;
+		min_angle_ = -M_PI/2+0.00;
 		has_changed_min_ = false;
 		has_changed_max_ = false;
 	}
@@ -173,7 +173,6 @@ using namespace laser_assembler ;
 int main(int argc, char **argv)
 {
     
-  ROS_INFO("AAAAAAAAAAAAAAAAAAAAAA") ;
   ros::init(argc, argv, "periodic_snapshotter");
   ros::NodeHandle n;
 
