@@ -1,7 +1,5 @@
 <launch>
-<param name="/use_sim_time" value="true"/>
   <node pkg="project_mapping" type="periodic_snapshotter2" output="screen" name="periodic_snapshotter">
-    <param name="/use_sim_time" value="true" />
   </node>
   <node pkg="project_mapping" type="laser_scan_assembler" output="screen"  name="laser_scan_assembler">
     <remap from="scan" to="/GETjag/laser_scan_front"/>

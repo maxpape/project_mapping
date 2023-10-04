@@ -11,6 +11,7 @@ from scipy.spatial.transform import Rotation
 from iteration_utilities import deepflatten
 from mpl_toolkits.mplot3d import Axes3D
 
+
 def detect_ground_plane(pcd):
     """detect ground plane (floor) in pointcloud
 
@@ -58,6 +59,31 @@ def compute_plane_transformation(plane1, plane2):
                                       [0, 0, 0, 1]])
 
     return transformation_matrix
+
+
+def orientation_to_quaternion(orientation):
+    """
+    Convert orientation given by orientation vector to quaternion.
+
+    Parameters:
+        orientation (numpy.ndarray): Orientation vector [x, y, z].
+
+    Returns:
+        list: Quaternion [x, y, z, w].
+    """
+    # Compute the rotation matrix
+    vector1 = orientation / np.linalg.norm(orientation)
+    vector2 = np.asarray([1,0,0])
+    
+    rotation_matrix = Rotation.align_vectors([vector1], [vector2])[0].as_matrix()
+
+    r = Rotation.from_matrix(rotation_matrix)
+    
+    # Convert the rotation matrix to quaternion
+    qt = r.as_quat()
+
+    
+    return qt
 
 def calculate_floor_alignment_matrix(pcd_ground_plane):
     """Calculates the transformation matrix needed to align the floor of the input pointcloud with the xy-plane
@@ -1032,7 +1058,7 @@ def count_hits_ray_cast(scene_answer, cam_normal, dist_thresh, angle_thresh):
     Returns:
         float: percentage of valid hits in ray-casting scene
     """
-    
+    print("fnc: count_hits_ray_cast()")
     # extract surface normals and distances from ray-casting scene
     cast_normals = scene_answer['primitive_normals'].numpy()
     cast_distances = scene_answer['t_hit'].numpy()
@@ -1079,6 +1105,7 @@ def rank_all_views(hole_patches, dist_thresh, angle_thresh, camera_fov=90):
     Returns:
         list: returns percentage of valid hits, with corresponding camera position and orientation as well as ray-casting scene answers
     """
+    print("fnc: rank_all_views()")
     
     # create empty ray-casting scene and variables
     scene = o3d.t.geometry.RaycastingScene()

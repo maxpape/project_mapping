@@ -72,8 +72,8 @@ public:
 		// initialize min/max angles and indicator for if changes has happened
 		// has_changed_min/max_ is needed, so service is only called once
 		curr_angle_ = 0;
-		max_angle_ = M_PI/2-0.00;
-		min_angle_ = -M_PI/2+0.00;
+		max_angle_ = M_PI/2-0.20;
+		min_angle_ = -M_PI/2+0.20;
 		has_changed_min_ = false;
 		has_changed_max_ = false;
 	}
@@ -84,7 +84,7 @@ public:
 	AssembleScans srv;
 
 	// save current motor position
-    curr_angle_ = motorMsg->position[0];
+    curr_angle_ = motorMsg->position[8];
     //ROS_INFO("current angle: %f", curr_angle_) ;
     // when current angle is smaller then -pi/2 and start time has not been changed yet: pass
     if (((curr_angle_) < min_angle_) and (!has_changed_min_))

@@ -8,8 +8,9 @@ from ctypes import * # convert float to uint32
 from std_msgs.msg import Header
 from sensor_msgs.msg import PointCloud2, PointField
 import sensor_msgs.point_cloud2 as pc2
-from project_mapping.srv import save_map, get_floor, get_nbv, align_floor
+from project_mapping.srv import save_map, get_floor, get_nbv, align_floor, set_position
 from project_mapping.msg import tuple_ndarray
+from gazebo_msgs.srv import SetModelState, SetModelStateRequest
 
 import multiprocessing as mp
 from multiprocessing import Pool
@@ -354,7 +355,7 @@ def get_floor_handler(req, map):
     valid_area = uniform_pc.select_by_index(list(known_points))
     valid_area_voxel = o3d.geometry.VoxelGrid.create_from_point_cloud(valid_area.paint_uniform_color([0,1,0]), 0.2)
     map.floor = valid_area_voxel
-    o3d.visualization.draw_geometries([map.floor, map.map_2d])
+    #o3d.visualization.draw_geometries([map.floor, map.map_2d])
     map.up_to_date = True
     return []
 
@@ -384,9 +385,13 @@ def get_nbv_handler(req, map):
     geometries = functions.detect_boundary_patches(boundaries)
     
     print("start ran")
+    if len(geometries) <= 2:
+        return []
+    
+    
     ranked_views = functions.rank_all_views(geometries, (2,10), 10 )
     ranked_views = functions.sort_xd_list(ranked_views, 0, "descending")
-    hit_areas = [view[0] for view in ranked_views]
+    #hit_areas = [view[0] for view in ranked_views]
     best_positions = [view[1] for view in ranked_views]
     best_orientations = [view[2] for view in ranked_views]
     
@@ -394,8 +399,11 @@ def get_nbv_handler(req, map):
     if not map.is_aligned:
         align_floor_handler(None, map)
         
-        
-    best_views = functions.find_best_valid_view(best_positions, best_orientations, map.floor)
+    if len(best_positions) == 0:
+        print("no best view found, set default [0,0,0], [0,0,0]")
+        best_views = [(np.asarray([0,0,0]) , np.asarray([0,0,0]))]
+    else:
+        best_views = functions.find_best_valid_view(best_positions, best_orientations, map.floor)
         
     
     map.next_best_views = best_views
@@ -455,6 +463,44 @@ def align_floor_handler(req, map):
     return []
 
 
+def set_model_state(position, orientation, model_name="GETjag"):
+    
+    
+    # Create a service proxy for the /gazebo/set_model_state service
+    set_model_state_proxy = rospy.ServiceProxy('/gazebo/set_model_state', SetModelState)
+
+    # Create a SetModelStateRequest object and fill in the details
+    request = SetModelStateRequest()
+    request.model_state.model_name = model_name
+    request.model_state.pose.position.x = position[0]
+    request.model_state.pose.position.y = position[1]
+    request.model_state.pose.position.z = position[2]
+    request.model_state.pose.orientation.x = orientation[0]
+    request.model_state.pose.orientation.y = orientation[1]
+    request.model_state.pose.orientation.z = orientation[2]
+    request.model_state.pose.orientation.w = orientation[3]
+
+    # Call the service and print the response
+    try:
+        response = set_model_state_proxy(request)
+        rospy.loginfo("Service call succeeded with response: %s", response.status_message)
+    except rospy.ServiceException as e:
+        rospy.logerr("Service call failed: %s", e)
+        
+        
+def set_position_handler(req,map):
+    x = req.nbv
+    position = map.next_best_views[x][0]
+    orientation =  map.next_best_views[x][1]
+    
+    #position = np.asarray([3,0,0])
+    #orientation = np.asarray([0,1,0])
+    
+    qt = functions.orientation_to_quaternion(orientation)
+    set_model_state(position, qt)
+    
+    return []
+
 def main():
     rospy.init_node("pointcloud_icp", anonymous=True)
     service_name_save = rospy.get_name() + "/save_map"
@@ -467,12 +513,14 @@ def main():
     get_floor_handler_lambda = lambda x: get_floor_handler(x,map)
     get_nbv_handler_lambda = lambda x: get_nbv_handler(x,map)
     align_floor_handler_lambda = lambda x: align_floor_handler(x,map)
+    set_position_handler_lambda = lambda x: set_position_handler(x,map)
     #s1 = rospy.Service(service_name_save, save_map, save_map_handler_lambda)
     #s2 = rospy.Service(service_name_floor, get_floor, get_floor_handler_lambda)
     s1 = rospy.Service("/save_map", save_map, save_map_handler_lambda)
     s2 = rospy.Service("/get_floor", get_floor, get_floor_handler_lambda)
     s3 = rospy.Service("/get_nbv", get_nbv, get_nbv_handler_lambda)
     s4 = rospy.Service("/algin_floor", align_floor, align_floor_handler_lambda)
+    s5 = rospy.Service("/set_position", set_position, set_position_handler_lambda)
         
     rospy.Subscriber("/periodic_snapshotter/assembled_cloud_2", PointCloud2, registration, map)
     #rospy.Subscriber("/GETjag/laser_cloud_last", PointCloud2, registration, map)

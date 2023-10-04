@@ -7,7 +7,7 @@
     <remap from="scan" to="/GETjag/laser_scan_front"/>
     <param name="tf_cache_time_secs" type="double" value="10.0" />
     <param name="max_scans" type="int" value="10000" />
-    <param name="ignore_laser_skew" type="bool" value="true" />
+    <param name="ignore_laser_skew" type="bool" value="false" />
     <param name="fixed_frame" type="string" value="GETjag/odom" />
     <rosparam command="load" file="$(find project_mapping)/config/laser_filter_config.yaml" />
   </node>
