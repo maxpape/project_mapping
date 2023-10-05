@@ -222,7 +222,7 @@ def register(pcds, pcds_down, output, voxel_size):
 def main(argv):
     # get arguments from command line
     argParser = argparse.ArgumentParser(formatter_class=lambda prog: argparse.HelpFormatter(prog,max_help_position=80))
-    argParser.add_argument("-i", "--input", type=list, nargs="+", help="list of input files", required=True)
+    argParser.add_argument("-i", "--input", nargs="+", help="list of input files", required=True)
     argParser.add_argument("-o", "--output", type=str, default="output.pcd", help="output file name; default=output.pcd")
     argParser.add_argument("-d", "--downsample", type=float, default=0.05, help="voxel size for downsampling; default=0.05")
     argParser.add_argument("-a", "--align", type=bool, default=False, help="set to True if manual pre-alignment is needed; default=False")
